@@ -1,5 +1,6 @@
 from typing import Any, Dict, Type
 
+from .ris import RIS
 from .awac import AWAC
 from .base import AlgoBase
 from .bc import BC, DiscreteBC

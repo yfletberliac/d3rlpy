@@ -4,6 +4,7 @@
 *.c
 *.cpp
 *.so
+.DS_Store
 .python-version
 d3rlpy_data
 test_data
