@@ -83,6 +83,7 @@ class RIS(AlgoBase):
     _q_func_factory: QFunctionFactory
     _tau: float
     _n_critics: int
+    _n_action_samples: int
     _update_actor_interval: int
     _lam: float
     _rl_start_step: int
@@ -108,6 +109,7 @@ class RIS(AlgoBase):
         gamma: float = 0.99,
         tau: float = 0.005,
         n_critics: int = 2,
+        n_action_samples: int = 10,
         update_actor_interval: int = 1,
         lam: float = 0.75,
         rl_start_step: int = 0,
@@ -140,6 +142,7 @@ class RIS(AlgoBase):
         self._q_func_factory = check_q_func(q_func_factory)
         self._tau = tau
         self._n_critics = n_critics
+        self._n_action_samples = n_action_samples
         self._update_actor_interval = update_actor_interval
         self._lam = lam
         self._rl_start_step = rl_start_step
@@ -165,6 +168,7 @@ class RIS(AlgoBase):
             gamma=self._gamma,
             tau=self._tau,
             n_critics=self._n_critics,
+            n_action_samples=self._n_action_samples,
             lam=self._lam,
             use_gpu=self._use_gpu,
             scaler=self._scaler,

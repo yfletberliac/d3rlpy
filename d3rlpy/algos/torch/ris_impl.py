@@ -1,12 +1,11 @@
-import math
-from typing import Optional, Sequence, cast
+from typing import Optional, Sequence
 
 import numpy as np
 import torch
 from torch.optim import Optimizer
 
 from ...gpu import Device
-from ...models.builders import create_discrete_imitator
+from ...models.builders import create_non_squashed_normal_policy, create_probablistic_regressor
 from ...models.encoders import EncoderFactory
 from ...models.optimizers import OptimizerFactory
 from ...models.q_functions import QFunctionFactory
@@ -14,8 +13,10 @@ from ...models.torch import compute_max_with_n_actions
 from ...preprocessing import ActionScaler, RewardScaler, Scaler
 from ...torch_utility import TorchMiniBatch, torch_api, train_api
 from .ddpg_impl import DDPGBaseImpl
-from .dqn_impl import DoubleDQNImpl
-
+from ...models.torch import (
+    NonSquashedNormalPolicy,
+    Imitator,
+)
 
 class RISImpl(DDPGBaseImpl):
 
@@ -23,8 +24,8 @@ class RISImpl(DDPGBaseImpl):
     _imitator_optim_factory: OptimizerFactory
     _imitator_encoder_factory: EncoderFactory
     _lam: float
-    _policy: Optional[DeterministicResidualPolicy]
-    _targ_policy: Optional[DeterministicResidualPolicy]
+    _policy: Optional[NonSquashedNormalPolicy]
+    _targ_policy: Optional[NonSquashedNormalPolicy]
     _imitator: Optional[Imitator]
     _imitator_optim: Optional[Optimizer]
 
@@ -45,6 +46,7 @@ class RISImpl(DDPGBaseImpl):
         gamma: float,
         tau: float,
         n_critics: int,
+        n_action_samples: int,
         lam: float,
         use_gpu: Optional[Device],
         scaler: Optional[Scaler],
@@ -73,6 +75,7 @@ class RISImpl(DDPGBaseImpl):
         self._imitator_optim_factory = imitator_optim_factory
         self._imitator_encoder_factory = imitator_encoder_factory
         self._n_critics = n_critics
+        self._n_action_samples = n_action_samples
         self._lam = lam
 
         # initialized in build
@@ -99,7 +102,7 @@ class RISImpl(DDPGBaseImpl):
         self._imitator = create_probablistic_regressor(
                 self._observation_shape,
                 self._action_size,
-                self._encoder_factory,
+                self._imitator_encoder_factory,
                 min_logstd=-4.0,
                 max_logstd=15.0,
             )
@@ -145,11 +148,20 @@ class RISImpl(DDPGBaseImpl):
     def compute_target(self, batch: TorchMiniBatch) -> torch.Tensor:
         assert self._targ_q_func is not None
         with torch.no_grad():
-            repeated_x = self._repeat_observation(batch.next_observations)
-            actions = self._sample_repeated_action(repeated_x, True)
-
+            actions = self._sample_repeated_action(batch.next_observations)
             values = compute_max_with_n_actions(
                 batch.next_observations, actions, self._targ_q_func, self._lam
             )
 
             return values
+
+    def _sample_repeated_action(
+        self, repeated_x: torch.Tensor
+    ) -> torch.Tensor:
+        assert self._targ_policy is not None
+        flattened_x = repeated_x.reshape(-1, *self.observation_shape)
+        # sample action
+        sampled_action = self._targ_policy.sample_n(
+                flattened_x, self._n_action_samples
+            )
+        return sampled_action

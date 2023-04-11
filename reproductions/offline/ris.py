@@ -30,7 +30,7 @@ def main():
                            imitator_learning_rate=1e-3,
                            batch_size=100,
                            lam=0.75,
-                           n_action_samples=100,
+                           n_action_samples=10,
                            use_gpu=args.gpu)
 
     ris.fit(dataset.episodes,
